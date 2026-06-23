@@ -4,7 +4,7 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 from flask import Flask
-import threading
+import multiprocessing
 
 load_dotenv()
 
@@ -61,9 +61,9 @@ def handle_ai_request(message):
         bot.edit_message_text(error_text, message.chat.id, waiting_msg.message_id)
 
 if __name__ == "__main__":
-    flask_thread = threading.Thread(target=run_flask)
-    flask_thread.daemon = True
-    flask_thread.start()
+    flask_process = multiprocessing.Process(target=run_flask)
+    flask_process.daemon = True
+    flask_process.start()
     
     print("AI Bot successfully started...")
     bot.infinity_polling()
