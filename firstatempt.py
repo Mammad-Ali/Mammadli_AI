@@ -1,4 +1,5 @@
 import os
+import time
 import telebot
 from google import genai
 from google.genai import types
@@ -48,21 +49,28 @@ def send_welcome(message):
 def handle_ai_request(message):
     waiting_msg = bot.send_message(message.chat.id, "🤖 Думаю над ответом...")
     
-    try:
-        response = ai_client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=message.text,
-            config=AI_CONFIG
-        )
-        
+    response_text = None
+    for attempt in range(3):
         try:
-            bot.edit_message_text(response.text, message.chat.id, waiting_msg.message_id, parse_mode='Markdown')
-        except Exception:
-            bot.edit_message_text(response.text, message.chat.id, waiting_msg.message_id)
-            
-    except Exception as e:
-        error_text = f"❌ Error contacting AI: {str(e)}"
-        bot.edit_message_text(error_text, message.chat.id, waiting_msg.message_id)
+            response = ai_client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=message.text,
+                config=AI_CONFIG
+            )
+            response_text = response.text
+            break
+        except Exception as e:
+            if "503" in str(e) and attempt < 2:
+                time.sleep(2)
+                continue
+            else:
+                response_text = "⚠️ Сервера Google сейчас перегружены. Пожалуйста, попробуй отправить сообщение еще раз через минуту!"
+                break
+
+    try:
+        bot.edit_message_text(response_text, message.chat.id, waiting_msg.message_id, parse_mode='Markdown')
+    except Exception:
+        bot.edit_message_text(response_text, message.chat.id, waiting_msg.message_id)
 
 if __name__ == "__main__":
     flask_process = multiprocessing.Process(target=run_flask)
