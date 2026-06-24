@@ -54,8 +54,12 @@ def handle_ai_request(message):
             contents=message.text,
             config=AI_CONFIG
         )
-        bot.edit_message_text(response.text, message.chat.id, waiting_msg.message_id, parse_mode='Markdown')
         
+        try:
+            bot.edit_message_text(response.text, message.chat.id, waiting_msg.message_id, parse_mode='Markdown')
+        except Exception:
+            bot.edit_message_text(response.text, message.chat.id, waiting_msg.message_id)
+            
     except Exception as e:
         error_text = f"❌ Error contacting AI: {str(e)}"
         bot.edit_message_text(error_text, message.chat.id, waiting_msg.message_id)
