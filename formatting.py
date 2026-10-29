@@ -1,13 +1,11 @@
 import html
 import re
 
-# Telegram allows 4096 characters per message. We stay well below that,
-# because emoji count as 2 characters and closing a code block adds a few more.
-MAX_PART_LENGTH = 3500
+MAX_LEN = 3500  # telegram limit is 4096, leaving some room for emojis and closing ```
 
-FENCE = re.compile(r'^\s*```\s*([\w+#.-]*)')
+CODE_FENCE = re.compile(r'^\s*```\s*([\w+#.-]*)')
 INLINE_CODE = re.compile(r'`([^`\n]+)`')
-PLACEHOLDER = re.compile(r'\x00(\d+)\x00')
+CODE_SLOT = re.compile(r'\x00(\d+)\x00')
 HEADING = re.compile(r'^#{1,6}\s+(.+)$')
 BULLET = re.compile(r'^(\s*)[*+-]\s+')
 BOLD_ITALIC = re.compile(r'\*\*\*([^*<>\n]+?)\*\*\*')
@@ -17,80 +15,72 @@ STRIKE = re.compile(r'~~([^<>\n]+?)~~')
 LINK = re.compile(r'\[([^\]\n]+)\]\((https?://[^)\s"]+)\)')
 
 
-def split_message(text, limit=MAX_PART_LENGTH):
-    """Split a long reply into parts that each fit in one Telegram message.
-
-    If a code block gets cut in the middle, it is closed at the end of one part
-    and opened again at the start of the next, so every part looks right on its own.
-    """
+def split_message(text, limit=MAX_LEN):
     parts = []
     current = ''
-    fence = None  # the line that opened the code block we are inside, if any
+    code_block = None  # the ``` line that opened the code block we're in
 
     for line in text.split('\n'):
-        closes_block = fence is not None and FENCE.match(line)
-        # A single line longer than the limit is cut into pieces
-        pieces = [line[i:i + limit] for i in range(0, len(line), limit)] or ['']
+        closing = code_block and CODE_FENCE.match(line)
+        chunks = [line[i:i + limit] for i in range(0, len(line), limit)] or ['']
 
-        for piece in pieces:
-            if current and not closes_block and len(current) + len(piece) + 1 > limit:
-                if fence:
+        for chunk in chunks:
+            if current and not closing and len(current) + len(chunk) + 1 > limit:
+                # close the code block here and open it again in the next message
+                if code_block:
                     current += '\n```'
                 parts.append(current)
-                current = fence or ''
-            current = current + '\n' + piece if current else piece
+                current = code_block or ''
+            current = current + '\n' + chunk if current else chunk
 
-        if FENCE.match(line):
-            fence = None if fence else line.strip()
+        if CODE_FENCE.match(line):
+            code_block = None if code_block else line.strip()
 
     parts.append(current)
-    parts = [part for part in parts if part.strip()]
-    return parts or [text]
+    return [p for p in parts if p.strip()] or [text]
 
 
 def markdown_to_html(text):
-    """Convert the Markdown that Gemini writes into the HTML that Telegram understands."""
-    result = []
-    code_lines = None  # lines of the code block we are inside, if any
-    language = ''
+    lines = []
+    code = None
+    lang = ''
 
     for line in text.split('\n'):
-        fence = FENCE.match(line)
-        if fence:
-            if code_lines is None:
-                code_lines = []
-                language = fence.group(1)
-            else:
-                result.append(_code_block(code_lines, language))
-                code_lines = None
-        elif code_lines is not None:
-            code_lines.append(line)
+        fence = CODE_FENCE.match(line)
+        if fence and code is None:
+            code = []
+            lang = fence.group(1)
+        elif fence:
+            lines.append(code_to_html(code, lang))
+            code = None
+        elif code is not None:
+            code.append(line)
         else:
-            result.append(_format_line(line))
+            lines.append(format_line(line))
 
-    # The reply ended without closing its code block
-    if code_lines is not None:
-        result.append(_code_block(code_lines, language))
+    # code block was never closed
+    if code is not None:
+        lines.append(code_to_html(code, lang))
 
-    return '\n'.join(result)
+    return '\n'.join(lines)
 
 
-def _code_block(lines, language):
-    code = html.escape('\n'.join(lines), quote=False)
-    if language:
-        return f'<pre><code class="language-{language}">{code}</code></pre>'
+def code_to_html(code, lang):
+    code = html.escape('\n'.join(code), quote=False)
+    if lang:
+        return f'<pre><code class="language-{lang}">{code}</code></pre>'
     return f'<pre>{code}</pre>'
 
 
-def _format_line(line):
-    # Hide `inline code` first, so the bold/italic rules don't touch what is inside it
+def format_line(line):
+    # take out `inline code` first so bold/italic don't touch it
     codes = []
 
-    def hide_code(match):
-        codes.append(match.group(1))
+    def save_code(m):
+        codes.append(m.group(1))
         return f'\x00{len(codes) - 1}\x00'
 
-    line = INLINE_CODE.sub(hide_code, line)
+    line = INLINE_CODE.sub(save_code, line)
     line = html.escape(line, quote=False)
 
     heading = HEADING.match(line)
@@ -108,7 +98,5 @@ def _format_line(line):
     if heading:
         line = f'<b>{line}</b>'
 
-    return PLACEHOLDER.sub(
-        lambda match: f'<code>{html.escape(codes[int(match.group(1))], quote=False)}</code>',
-        line,
-    )
+    # put the inline code back
+    return CODE_SLOT.sub(lambda m: '<code>' + html.escape(codes[int(m.group(1))], quote=False) + '</code>', line)

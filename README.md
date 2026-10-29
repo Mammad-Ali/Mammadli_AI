@@ -1,26 +1,40 @@
-# Telegram AI Assistant Bot 🤖
+# Mammadli AI Bot 🤖
 
-A lightweight and secure Telegram bot powered by Google's **Gemini 2.5 Flash** model. This assistant can answer general questions, generate code snippets, and translate texts with structured Markdown formatting.
+[![Open in Telegram](https://img.shields.io/badge/Telegram-@Mammadli__AI__Bot-26A5E4?logo=telegram&logoColor=white)](https://t.me/Mammadli_AI_Bot)
+
+A Telegram bot that answers your questions using Google's Gemini 2.5 Flash. You can ask it anything, get it to write code or translate a text.
+
+👉 **Try it here: [t.me/Mammadli_AI_Bot](https://t.me/Mammadli_AI_Bot)**
 
 ## Features
-- ⚡ **Fast Responses:** Utilizes the efficient `gemini-2.5-flash` model via the official Google GenAI SDK.
-- 🎨 **Rich Formatting:** Gemini's Markdown (code blocks, lists, bold, links) is converted to Telegram HTML, with a plain-text fallback.
-- 📜 **Long Answers:** Replies longer than Telegram's 4096-character limit are split into several messages.
-- 🛠️ **Robust Architecture:** Retries when Google's servers are busy and shows a clear message for rate limits, blocked answers, and other errors.
-- 🔒 **Security First:** Implements environment variables (`.env`) to isolate and protect sensitive API tokens.
+- answers any message with `gemini-2.5-flash`
+- proper formatting in Telegram: bold, lists, code blocks, links
+- long answers are split into several messages instead of getting cut off
+- retries when Google's servers are busy and tells you when something goes wrong
 
-## Tech Stack
-- **Language:** Python 3.12
-- **Framework:** `pyTelegramBotAPI` (Telebot)
-- **AI Integration:** `google-genai` SDK
-- **Environment Management:** `python-dotenv`
-- **Hosting:** `flask` keep-alive server for Render
+## Built with
+- Python
+- [pyTelegramBotAPI](https://github.com/eternnoir/pyTelegramBotAPI)
+- [google-genai](https://github.com/googleapis/python-genai)
+- python-dotenv
+- Flask (small web server so the bot can run on Render)
 
-## Project Structure
-```text
-├── firstatempt.py     # Main bot application logic
-├── formatting.py      # Markdown to Telegram HTML conversion and message splitting
-├── .env               # Secret API keys (Excluded from GitHub)
-├── .gitignore         # Git rules to ignore sensitive files
-└── requirements.txt   # List of project dependencies
-```
+## Running it yourself
+1. Install the dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+2. Create a `.env` file with your keys:
+   ```
+   TELEGRAM_TOKEN=your_telegram_bot_token
+   GEMINI_API_KEY=your_gemini_api_key
+   ```
+3. Start the bot:
+   ```bash
+   python firstatempt.py
+   ```
+
+## Files
+- `firstatempt.py` - the bot itself
+- `formatting.py` - converts Gemini's markdown to Telegram HTML and splits long messages
+- `requirements.txt` - dependencies
